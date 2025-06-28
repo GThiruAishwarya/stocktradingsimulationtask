@@ -1,6 +1,7 @@
 const db = require('../models');
 const { User, Stock, Trade, Loan } = db;
 
+// ✅ Take Loan
 exports.takeLoan = async (req, res) => {
   const { userId, amount } = req.body;
   try {
@@ -21,6 +22,7 @@ exports.takeLoan = async (req, res) => {
   }
 };
 
+// ✅ Buy Stock
 exports.buyStock = async (req, res) => {
   const { userId, stockId, quantity } = req.body;
   try {
@@ -38,13 +40,22 @@ exports.buyStock = async (req, res) => {
     await user.save();
     await stock.save();
 
-    await Trade.create({ userId, stockId, type: 'BUY', quantity, price: stock.price });
+    // ✅ Log BUY trade properly
+    await Trade.create({
+      type: 'BUY',
+      quantity,
+      price: stock.price,
+      UserId: user.id,
+      StockId: stock.id
+    });
+
     res.json({ message: 'Stock bought successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
 
+// ✅ Sell Stock
 exports.sellStock = async (req, res) => {
   const { userId, stockId, quantity } = req.body;
   try {
@@ -52,13 +63,9 @@ exports.sellStock = async (req, res) => {
     const stock = await Stock.findByPk(stockId);
     if (!user || !stock) return res.status(404).json({ error: 'User or stock not found' });
 
-    const userBuys = await Trade.findAll({
-      where: { userId, stockId, type: 'BUY' }
-    });
-
-    const userSells = await Trade.findAll({
-      where: { userId, stockId, type: 'SELL' }
-    });
+    // Get total bought and sold
+    const userBuys = await Trade.findAll({ where: { UserId: userId, StockId: stockId, type: 'BUY' } });
+    const userSells = await Trade.findAll({ where: { UserId: userId, StockId: stockId, type: 'SELL' } });
 
     const totalBought = userBuys.reduce((sum, t) => sum + t.quantity, 0);
     const totalSold = userSells.reduce((sum, t) => sum + t.quantity, 0);
@@ -72,25 +79,30 @@ exports.sellStock = async (req, res) => {
     await user.save();
     await stock.save();
 
-    await Trade.create({ userId, stockId, type: 'SELL', quantity, price: stock.price });
+    // ✅ Log SELL trade properly
+    await Trade.create({
+      type: 'SELL',
+      quantity,
+      price: stock.price,
+      UserId: user.id,
+      StockId: stock.id
+    });
+
     res.json({ message: 'Stock sold successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
 
+// ✅ User Profit Report
 exports.getUserReport = async (req, res) => {
   try {
     const users = await User.findAll({ include: [Trade] });
 
     const report = users.map((user) => {
       const trades = user.Trades || [];
-      const buy = trades
-        .filter(t => t.type === 'BUY')
-        .reduce((sum, t) => sum + t.quantity * t.price, 0);
-      const sell = trades
-        .filter(t => t.type === 'SELL')
-        .reduce((sum, t) => sum + t.quantity * t.price, 0);
+      const buy = trades.filter(t => t.type === 'BUY').reduce((sum, t) => sum + t.quantity * t.price, 0);
+      const sell = trades.filter(t => t.type === 'SELL').reduce((sum, t) => sum + t.quantity * t.price, 0);
       const profit = sell - buy;
       return { user: user.name, profit };
     });
@@ -101,18 +113,15 @@ exports.getUserReport = async (req, res) => {
   }
 };
 
+// ✅ Top 5 Users by Profit
 exports.getTopUsers = async (req, res) => {
   try {
     const users = await User.findAll({ include: [Trade] });
 
     const ranked = users.map((user) => {
       const trades = user.Trades || [];
-      const buy = trades
-        .filter(t => t.type === 'BUY')
-        .reduce((sum, t) => sum + t.quantity * t.price, 0);
-      const sell = trades
-        .filter(t => t.type === 'SELL')
-        .reduce((sum, t) => sum + t.quantity * t.price, 0);
+      const buy = trades.filter(t => t.type === 'BUY').reduce((sum, t) => sum + t.quantity * t.price, 0);
+      const sell = trades.filter(t => t.type === 'SELL').reduce((sum, t) => sum + t.quantity * t.price, 0);
       const profit = sell - buy;
       return { user: user.name, profit };
     });
