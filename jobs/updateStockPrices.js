@@ -11,8 +11,9 @@ cron.schedule('*/5 * * * *', async () => {
         stockId: stock.id,
         price: newPrice
       });
-      stock.price = newPrice;
-      await stock.save();
+     stock.price *= Math.random() < 0.5 ? 1.1 : 0.9;
+await stock.save();
+
     }
     console.log(`[${new Date().toLocaleTimeString()}] Stock prices updated.`);
   } catch (err) {
